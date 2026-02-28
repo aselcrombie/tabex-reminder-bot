@@ -22,7 +22,8 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 # --- Config ------------------------------------------------------------------
 TOKEN = os.getenv("TELEGRAM_TOKEN")
-DATA_PATH = Path("data.json")
+# На Render задай DATA_PATH=/data/data.json и подключи Persistent Disk к /data
+DATA_PATH = Path(os.getenv("DATA_PATH", "data.json"))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),

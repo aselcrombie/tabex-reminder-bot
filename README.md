@@ -56,10 +56,17 @@ Telegram bot that sends reminders for the Tabex (cytisine) 25-day course. Uses l
      - **Key:** `TELEGRAM_TOKEN`
      - **Value:** your bot token from [@BotFather](https://t.me/BotFather)
 
-4. **Persistent data (important):**  
-   By default, Render's filesystem is ephemeral. Restarts will wipe `data.json`.
+4. **Сохранить данные пользователей на диске (Persistent Disk):**  
+   По умолчанию файловая система Render эфемерная — при перезапуске или новом деплое `data.json` теряется. Чтобы данные сохранялись:
 
-   - **TODO:** Enable **Persistent Disk** for this service in Render dashboard (if available for your plan), and store `data.json` on the mounted disk path (e.g. `/data/data.json`), or switch to an external store (e.g. S3, database) for production.
+   - В Render Dashboard открой свой **Background Worker** → вкладка **Disks** (или **Settings**).
+   - Нажми **Add Disk** (Persistent Disk).
+   - **Mount Path:** укажи `/data` (именно эта папка будет постоянной).
+   - **Size:** например 1 GB. Сохрани.
+   - В **Environment** добавь переменную:
+     - **Key:** `DATA_PATH`
+     - **Value:** `/data/data.json`
+   - После следующего деплоя бот будет писать и читать `data.json` с постоянного диска — данные переживут перезапуски и новые деплои.
 
 5. Deploy. The worker will start and the bot will run with long polling and the 60-second scheduler.
 
