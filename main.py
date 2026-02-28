@@ -401,46 +401,57 @@ def _apply_taken(u: dict, now: datetime) -> str | None:
 
 @router.callback_query(F.data == CB_TAKEN)
 async def cb_taken(cq: CallbackQuery) -> None:
-    await cq.answer()
     uid = str(cq.from_user.id)
     data = load_data()
     if uid not in data["users"]:
+        await cq.answer("Ошибка: пользователь не найден.", show_alert=True)
         return
     u = data["users"][uid]
     _migrate_user_reminders(u)
     if u.get("courseCompleted"):
+        await cq.answer("Курс уже завершён.")
         return
+    await cq.answer()
     now = datetime.utcnow()
     completion = _apply_taken(u, now)
     save_data(data)
-    await cq.message.edit_text((cq.message.text or "Приём") + "\n\n✓ Учтено.")
+    try:
+        await cq.message.edit_text((cq.message.text or "Приём") + "\n\n✓ Учтено.")
+    except Exception:
+        await cq.message.answer("✓ Учтено.")
     if completion:
         await cq.message.answer(completion)
 
 
 @router.callback_query(F.data == CB_POSTPONE)
 async def cb_postpone(cq: CallbackQuery) -> None:
-    await cq.answer("Напоминание через 15 минут")
     uid = str(cq.from_user.id)
     data = load_data()
     if uid not in data["users"]:
+        await cq.answer("Ошибка: пользователь не найден.", show_alert=True)
         return
     u = data["users"][uid]
     if u.get("courseCompleted"):
+        await cq.answer("Курс уже завершён.")
         return
+    await cq.answer("Напоминание через 15 минут")
     trigger_at = (datetime.utcnow() + timedelta(minutes=15)).isoformat() + "Z"
     u["postponedReminderTimestamp"] = trigger_at
     save_data(data)
-    await cq.message.edit_text((cq.message.text or "Приём") + "\n\nНапомню через 15 минут.")
+    try:
+        await cq.message.edit_text((cq.message.text or "Приём") + "\n\nНапомню через 15 минут.")
+    except Exception:
+        await cq.message.answer("Напомню через 15 минут.")
 
 
 @router.callback_query(F.data.startswith(CB_MISSED_YES))
 async def cb_missed_yes(cq: CallbackQuery) -> None:
-    await cq.answer()
     uid = str(cq.from_user.id)
     data = load_data()
     if uid not in data["users"]:
+        await cq.answer("Ошибка: пользователь не найден.", show_alert=True)
         return
+    await cq.answer()
     u = data["users"][uid]
     _migrate_user_reminders(u)
     u["nextReminderTimestamp"] = None
@@ -454,23 +465,33 @@ async def cb_missed_yes(cq: CallbackQuery) -> None:
         u["takenToday"] = 0
         u["lastMorningMessageDate"] = None
     save_data(data)
-    await cq.message.edit_text((cq.message.text or "") + "\n\nПриёмы отмечены выполненными.")
+    try:
+        await cq.message.edit_text((cq.message.text or "") + "\n\nПриёмы отмечены выполненными.")
+    except Exception:
+        await cq.message.answer("Приёмы отмечены выполненными.")
 
 
 @router.callback_query(F.data.startswith(CB_MISSED_NO))
 async def cb_missed_no(cq: CallbackQuery) -> None:
     await cq.answer()
-    await cq.message.edit_text((cq.message.text or "") + "\n\nХорошо.")
+    try:
+        await cq.message.edit_text((cq.message.text or "") + "\n\nХорошо.")
+    except Exception:
+        await cq.message.answer("Хорошо.")
 
 
 # --- Onboarding callbacks: confirm start date, first dose "Готово" ---
 @router.callback_query(F.data == "start_confirm_yes")
 async def cb_start_confirm_yes(cq: CallbackQuery) -> None:
-    await cq.answer()
     uid = str(cq.from_user.id)
     if uid not in pending_onboarding or pending_onboarding[uid].get("step") != "confirm_date":
-        await cq.message.edit_text("Сессия устарела. Отправьте /start заново.")
+        await cq.answer("Сессия устарела.", show_alert=True)
+        try:
+            await cq.message.edit_text("Сессия устарела. Отправьте /start заново.")
+        except Exception:
+            await cq.message.answer("Сессия устарела. Отправьте /start заново.")
         return
+    await cq.answer()
     today_iso = pending_onboarding[uid]["today_iso"]
     tz = pending_onboarding[uid]["timezone"]
     _save_new_user(uid, today_iso, tz)
@@ -487,11 +508,15 @@ async def cb_start_confirm_yes(cq: CallbackQuery) -> None:
 
 @router.callback_query(F.data == "start_confirm_no")
 async def cb_start_confirm_no(cq: CallbackQuery) -> None:
-    await cq.answer()
     uid = str(cq.from_user.id)
     if uid not in pending_onboarding or pending_onboarding[uid].get("step") != "confirm_date":
-        await cq.message.edit_text("Сессия устарела. Отправьте /start заново.")
+        await cq.answer("Сессия устарела.", show_alert=True)
+        try:
+            await cq.message.edit_text("Сессия устарела. Отправьте /start заново.")
+        except Exception:
+            await cq.message.answer("Сессия устарела. Отправьте /start заново.")
         return
+    await cq.answer()
     pending_onboarding[uid]["step"] = "optional_date"
     await cq.message.edit_reply_markup(reply_markup=None)
     await cq.message.answer(
@@ -504,20 +529,37 @@ async def cb_first_ready(cq: CallbackQuery) -> None:
     uid = str(cq.from_user.id)
     data = load_data()
     if uid not in data["users"]:
+        await cq.answer("Ошибка: пользователь не найден.", show_alert=True)
         return
     u = data["users"][uid]
     _migrate_user_reminders(u)
     if u.get("courseCompleted"):
+        await cq.answer("Курс уже завершён.")
         return
     day = u.get("currentDay", 1)
     interval_h = get_interval_hours(day)
-    await cq.answer(f"Принято. Напоминание через {interval_h} ч.")
     now = datetime.utcnow()
     completion = _apply_taken(u, now)
     save_data(data)
-    await cq.message.edit_text(
-        (cq.message.text or "") + f"\n\n✓ Приём учтён. Следующее напоминание — через {interval_h} ч."
+    # Убираем кнопку у предыдущего сообщения
+    try:
+        await cq.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    await cq.answer()
+    # Отправляем отдельное сообщение с подтверждением (видно всегда)
+    next_at_utc = now + timedelta(hours=interval_h)
+    try:
+        tz = int(u.get("timezone", 0))
+        next_at_user = next_at_utc + timedelta(hours=tz)
+        next_time_str = next_at_user.strftime("%H:%M")
+    except (ValueError, TypeError):
+        next_time_str = next_at_utc.strftime("%H:%M")
+    reply = (
+        f"✓ Записали. Первый приём учтён.\n\n"
+        f"Следующий приём — через {interval_h} ч. (напоминание придёт около {next_time_str} по вашему времени)."
     )
+    await cq.message.answer(reply)
     if completion:
         await cq.message.answer(completion)
 
